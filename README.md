@@ -12,7 +12,7 @@ Web interface for Raspberry Pi fm transmitter. Made using Vue.js and Python.
 1. Get the latest [release]
 2. Run install.sh file
 ```sh
-$ sudo ./install.sh
+$ sudo bash install.sh
 ```
 3. Run terminal and start the server
 ```sh
