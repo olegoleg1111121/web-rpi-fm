@@ -1,4 +1,6 @@
 from flask import Flask, jsonify, request, render_template, send_from_directory
+#pip install -U Werkzeug==0.16.0
+
 from funcs import *
 from flask_uploads import UploadSet, configure_uploads, AUDIO
 from flask_cors import CORS
@@ -39,9 +41,12 @@ def start():
     file_name = json["file_name"]
     freq = json["freq"]
     file = TinyTag.get("static/audio/" + file_name, image=True)
-    radio_text = removeNonAscii(file.title)
-    station_name = removeNonAscii(file.artist)
-
+    try:
+        radio_text = removeNonAscii(file.title)
+        station_name = removeNonAscii(file.artist)
+    except:
+        radio_text = 'Raspberry'
+        station_name = 'Pi Radio'
     # m = subprocess.Popen("./pifmrds -audio " + file_name + " -freq " + freq + " -rt " + radio_text)
     # m.wait()
     if pifm_proc and not pifm_proc.poll():
@@ -51,9 +56,9 @@ def start():
         print("Killed")
         pifm_proc = None
 
-    cmd = "sox -t mp3 {} -t wav - | sudo ./pifmrds -audio - -freq {} -rt '{}' -ps '{}'".format(file_name, freq, radio_text, station_name) 
+    cmd = "sox -t mp3 static/audio/{} -t wav - | sudo static/audio/pifmrds -audio - -freq {} -rt '{}' -ps '{}'".format(file_name, freq, radio_text, station_name) 
     print("Cmd: {}".format(cmd))
-    pifm_proc = subprocess.Popen(cmd, shell=True, cwd="static/audio", preexec_fn=os.setsid)
+    pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
 
     playing_file = file_name
     start_time = time.time()
@@ -83,11 +88,14 @@ def starturl():
         subprocess.Popen("sudo killall pifmrds", shell=True)
         print("Killed")
         pifm_proc = None
-
-    cmd = "sox -t mp3 {} -t wav - | sudo ./pifmrds -audio - -freq {} -rt {}".format(file_name, freq, radio_text) 
-    print("Cmd: {}".format(cmd))
-    pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
-
+    if file_name != 'Microphone':
+        cmd = "sox -t mp3 static/audio/{} -t wav - | sudo /static/audio/pifmrds -audio - -freq {} -rt {}".format(file_name, freq, radio_text) 
+        print("Cmd: {}".format(cmd))
+        pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
+    else:
+        cmd = "sudo arecord -fS16_LE -r 44100 -Dplughw:1,0 -c 2 -  | sudo /static/audio/pifmrds/pifmrds -audio - -freq {} -rt {}".format(file_name, freq, radio_text) 
+        print("Cmd: {}".format(cmd))
+        pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
     playing_file = file_name
     start_time = time.time()
 
@@ -194,6 +202,12 @@ def file_list():
                 i += 1
             except:
                 pass
+    payload[i] = {
+    "filename": 'Microphone',
+    "name": 'Microphone',
+    "length": 999999,
+    "author": 'you',
+    "img": None}
     return jsonify(payload)
     
 @app.route('/upload', methods=["POST"])
