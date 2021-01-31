@@ -40,8 +40,8 @@ def start():
     json = request.get_json()
     file_name = json["file_name"]
     freq = json["freq"]
-    file = TinyTag.get("static/audio/" + file_name, image=True)
     try:
+        file = TinyTag.get("static/audio/" + file_name, image=True)
         radio_text = removeNonAscii(file.title)
         station_name = removeNonAscii(file.artist)
     except:
@@ -56,9 +56,14 @@ def start():
         print("Killed")
         pifm_proc = None
 
-    cmd = "sox -t mp3 static/audio/{} -t wav - | sudo static/audio/pifmrds -audio - -freq {} -rt '{}' -ps '{}'".format(file_name, freq, radio_text, station_name) 
-    print("Cmd: {}".format(cmd))
-    pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
+    if file_name != 'Microphone':
+        cmd = "sox -t mp3 static/audio/{} -t wav - | sudo /static/audio/pifmrds -audio - -freq {} -rt {}".format(file_name, freq, radio_text) 
+        print("Cmd: {}".format(cmd))
+        pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
+    else:
+        cmd = "sudo arecord -fS16_LE -r 44100 -Dplughw:1,0 -c 2 -  | sudo /static/audio/pifmrds/pifmrds -audio - -freq {} -rt {}".format(freq, radio_text) 
+        print("Cmd: {}".format(cmd))
+        pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
 
     playing_file = file_name
     start_time = time.time()
@@ -93,7 +98,7 @@ def starturl():
         print("Cmd: {}".format(cmd))
         pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
     else:
-        cmd = "sudo arecord -fS16_LE -r 44100 -Dplughw:1,0 -c 2 -  | sudo /static/audio/pifmrds/pifmrds -audio - -freq {} -rt {}".format(file_name, freq, radio_text) 
+        cmd = "sudo arecord -fS16_LE -r 44100 -Dplughw:1,0 -c 2 -  | sudo /static/audio/pifmrds/pifmrds -audio - -freq {} -rt {}".format(freq, radio_text) 
         print("Cmd: {}".format(cmd))
         pifm_proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid)
     playing_file = file_name
@@ -148,22 +153,32 @@ def status():
         }), 200
     
     file = playing_file
-    f = TinyTag.get("static/audio/" + file, image=True)
-    if not f.title:
-        f.title = file
-
     img_path = None
-    
-    img_exists = os.path.isfile("static/img/" + file.split(".")[0] + ".png")
-    if img_exists:
-        img_path = file.split(".")[0] + ".png"
+    title = None
+    length = None
+    author = None
+    try:
+        f = TinyTag.get("static/audio/" + file, image=True)
+        
+        title = f.title
+        length = f.duration
+        author = f.artist
+        if not f.title:
+            f.title = file
 
+        img_path = None
+        
+        img_exists = os.path.isfile("static/img/" + file.split(".")[0] + ".png")
+        if img_exists:
+            img_path = file.split(".")[0] + ".png"
+    except:
+        pass
     return jsonify({
         "running": True,
         "filename": file,
-        "name": f.title,
-        "length": f.duration,
-        "author": f.artist,
+        "name": title,
+        "length": length,
+        "author": author,
         "img": img_path,
         "time_elapsed": time.time() - start_time,
     }), 200
@@ -202,7 +217,7 @@ def file_list():
                 i += 1
             except:
                 pass
-    payload[i] = {
+    payload[i+1] = {
     "filename": 'Microphone',
     "name": 'Microphone',
     "length": 999999,
